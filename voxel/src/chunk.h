@@ -1,6 +1,10 @@
 #pragma once
 #include <stdint.h>
+#ifdef VOXEL_WEB
+#include <GLES3/gl3.h>
+#else
 #include <glad/gl.h>
+#endif
 
 #define CHUNK_W   16
 #define CHUNK_H   128   /* reduced from 256 for faster prototype */

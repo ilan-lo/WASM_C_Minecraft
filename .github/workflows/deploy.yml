@@ -27,25 +27,33 @@ jobs:
 
       - name: Download dependencies
         run: |
-          # stb_image.h — single-header lib, not committed to git
           curl -sL https://raw.githubusercontent.com/nothings/stb/master/stb_image.h \
-            -o voxel-web/lib/stb_image.h
+            -o voxel/lib/stb_image.h
 
       - name: Build web version
         run: |
-          cd voxel-web
-          make clean
-          make
+          cd voxel
+          make -f Makefile.web clean
+          make -f Makefile.web
           echo "=== Build artifacts ==="
           ls -lh voxel.html voxel.js voxel.wasm voxel.data
 
       - name: Prepare GitHub Pages output
         run: |
           mkdir -p _site
-          cp voxel-web/voxel.html  _site/index.html
-          cp voxel-web/voxel.js    _site/
-          cp voxel-web/voxel.wasm  _site/
-          cp voxel-web/voxel.data  _site/
+          cp voxel/voxel.html  _site/index.html
+          cp voxel/voxel.js    _site/
+          cp voxel/voxel.wasm  _site/
+          cp voxel/voxel.data  _site/
+          python3 -c "
+import re
+with open('_site/index.html') as f:
+    html = f.read()
+html = re.sub(r'<a\b[^>]*>\s*<img\s+id=emscripten_logo[^>]*>\s*</a>', '', html)
+with open('_site/index.html', 'w') as f:
+    f.write(html)
+print('Logo removed from index.html')
+"
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

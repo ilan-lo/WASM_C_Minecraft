@@ -141,6 +141,9 @@ static void ui_vao_init(Renderer *r) {
 
 static void cache_uniforms(Renderer *r) {
     r->u_mvp         = glGetUniformLocation(r->world_prog, "u_mvp");
+#ifdef VOXEL_WEB
+    r->u_mv          = glGetUniformLocation(r->world_prog, "u_mv");
+#endif
     r->u_chunk_offset= glGetUniformLocation(r->world_prog, "u_chunk_offset");
     r->u_atlas_size  = glGetUniformLocation(r->world_prog, "u_atlas_size");
     r->u_atlas       = glGetUniformLocation(r->world_prog, "u_atlas");
@@ -156,8 +159,13 @@ static void cache_uniforms(Renderer *r) {
 
 int renderer_init(Renderer *r) {
     memset(r, 0, sizeof(Renderer));
+#ifdef VOXEL_WEB
+    r->world_prog = load_program("assets/shaders-web/world.vert", "assets/shaders-web/world.frag");
+    r->ui_prog    = load_program("assets/shaders-web/ui.vert",    "assets/shaders-web/ui.frag");
+#else
     r->world_prog = load_program("assets/shaders/world.vert", "assets/shaders/world.frag");
     r->ui_prog    = load_program("assets/shaders/ui.vert",   "assets/shaders/ui.frag");
+#endif
     if (!r->world_prog || !r->ui_prog) return 0;
     r->atlas_tex  = load_atlas("assets/textures/atlas.png", &r->atlas_size);
     cache_uniforms(r);
@@ -173,13 +181,30 @@ int renderer_init(Renderer *r) {
 }
 
 void renderer_reload_shaders(Renderer *r) {
+#ifdef VOXEL_WEB
+    GLuint wp = load_program("assets/shaders-web/world.vert", "assets/shaders-web/world.frag");
+    GLuint up = load_program("assets/shaders-web/ui.vert",    "assets/shaders-web/ui.frag");
+#else
     GLuint wp = load_program("assets/shaders/world.vert", "assets/shaders/world.frag");
     GLuint up = load_program("assets/shaders/ui.vert",    "assets/shaders/ui.frag");
+#endif
     if (wp) { glDeleteProgram(r->world_prog); r->world_prog = wp; }
     if (up) { glDeleteProgram(r->ui_prog);    r->ui_prog = up; }
     cache_uniforms(r);
     fprintf(stderr, "Shaders reloaded.\n");
 }
+
+/* representative color per block type for hotbar icons */
+static const float s_block_col[BLOCK_COUNT][4] = {
+    [BLOCK_GRASS]   = {0.39f, 0.63f, 0.27f, 1.f},
+    [BLOCK_DIRT]    = {0.47f, 0.31f, 0.16f, 1.f},
+    [BLOCK_STONE]   = {0.51f, 0.51f, 0.51f, 1.f},
+    [BLOCK_WOOD]    = {0.55f, 0.35f, 0.17f, 1.f},
+    [BLOCK_LEAVES]  = {0.24f, 0.56f, 0.24f, 0.9f},
+    [BLOCK_SAND]    = {0.82f, 0.76f, 0.47f, 1.f},
+    [BLOCK_WATER]   = {0.37f, 0.63f, 0.78f, 0.85f},
+    [BLOCK_BEDROCK] = {0.25f, 0.25f, 0.25f, 1.f},
+};
 
 static void draw_ui(Renderer *r, Player *p, int win_w, int win_h) {
     glUseProgram(r->ui_prog);
@@ -188,10 +213,13 @@ static void draw_ui(Renderer *r, Player *p, int win_w, int win_h) {
     glUniform1i(r->u_ui_use_tex, 0);
     glDisable(GL_DEPTH_TEST);
 
-    /* crosshair */
-    float cx = win_w * 0.5f, cy = win_h * 0.5f;
-    float cs = 10.f;
-    UIVert verts[24];
+    float hbar_w = HOTBAR_SLOTS * 42.f;
+    float hbar_x = (win_w - hbar_w) * 0.5f;
+    float hbar_y = 10.f;
+    float pad = 5.f;
+
+    /* 2 crosshair + 1 hotbar bg + 1 selected + HOTBAR_SLOTS icons = max 13 quads */
+    UIVert verts[(13 + HOTBAR_SLOTS) * 6];
     int n = 0;
 #define QUAD(x0,y0,x1,y1,ri,gi,bi,ai) \
     verts[n++]=(UIVert){x0,y0,0,0,ri,gi,bi,ai}; \
@@ -201,16 +229,28 @@ static void draw_ui(Renderer *r, Player *p, int win_w, int win_h) {
     verts[n++]=(UIVert){x1,y1,0,0,ri,gi,bi,ai}; \
     verts[n++]=(UIVert){x0,y1,0,0,ri,gi,bi,ai};
 
-    QUAD(cx-cs, cy-1.5f, cx+cs, cy+1.5f, 1,1,1,0.8f)   /* horizontal */
-    QUAD(cx-1.5f, cy-cs, cx+1.5f, cy+cs, 1,1,1,0.8f)   /* vertical */
+    /* crosshair */
+    float cx = win_w * 0.5f, cy = win_h * 0.5f, cs = 10.f;
+    QUAD(cx-cs, cy-1.5f, cx+cs, cy+1.5f, 1,1,1,0.8f)
+    QUAD(cx-1.5f, cy-cs, cx+1.5f, cy+cs, 1,1,1,0.8f)
 
     /* hotbar background */
-    float hbar_w = HOTBAR_SLOTS * 42.f;
-    float hbar_x = (win_w - hbar_w) * 0.5f;
-    float hbar_y = 10.f;
     QUAD(hbar_x, hbar_y, hbar_x+hbar_w, hbar_y+42.f, 0,0,0,0.4f)
 
-    /* selected slot highlight */
+    /* block icons */
+    for (int i = 0; i < HOTBAR_SLOTS; i++) {
+        uint8_t id = p->hotbar[i];
+        if (id == BLOCK_AIR) continue;
+        float ix0 = hbar_x + i * 42.f + pad;
+        float iy0 = hbar_y + pad;
+        float ix1 = ix0 + 42.f - 2.f*pad;
+        float iy1 = iy0 + 42.f - 2.f*pad;
+        QUAD(ix0, iy0, ix1, iy1,
+             s_block_col[id][0], s_block_col[id][1],
+             s_block_col[id][2], s_block_col[id][3])
+    }
+
+    /* selected slot highlight (drawn last so it's on top) */
     float sx = hbar_x + p->slot * 42.f;
     QUAD(sx, hbar_y, sx+42.f, hbar_y+42.f, 1,1,1,0.3f)
 #undef QUAD
@@ -266,6 +306,9 @@ void renderer_render(Renderer *r, World *w, Player *p, int win_w, int win_h, flo
         };
         mat4 mvp = mat4_mul(proj, view);
         glUniformMatrix4fv(r->u_mvp, 1, GL_FALSE, mvp.m);
+#ifdef VOXEL_WEB
+        glUniformMatrix4fv(r->u_mv, 1, GL_FALSE, view.m);
+#endif
         glUniform3f(r->u_chunk_offset, offset.x, offset.y, offset.z);
 
         glBindVertexArray(c->vao);

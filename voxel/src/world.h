@@ -1,8 +1,13 @@
 #pragma once
 #include "chunk.h"
 
+#ifdef VOXEL_WEB
+#define MAX_CHUNKS      512
+#define RENDER_DISTANCE 4
+#else
 #define MAX_CHUNKS      2048
 #define RENDER_DISTANCE 8     /* chunks in each direction */
+#endif
 #define MAP_SIZE        4096  /* hash map capacity, must be power of 2 */
 
 typedef struct {

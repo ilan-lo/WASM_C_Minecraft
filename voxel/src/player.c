@@ -52,8 +52,13 @@ static void raycast(Player *p, World *w) {
 }
 
 void player_update(Player *p, World *w, float dt) {
+#ifdef VOXEL_WEB
+    p->yaw   += g_mouse_dx * MOUSE_SENSITIVITY;
+    p->pitch -= g_mouse_dy * MOUSE_SENSITIVITY;
+#else
     p->yaw   -= g_mouse_dx * MOUSE_SENSITIVITY;
     p->pitch += g_mouse_dy * MOUSE_SENSITIVITY;
+#endif
     if (p->pitch >  1.5f) p->pitch =  1.5f;
     if (p->pitch < -1.5f) p->pitch = -1.5f;
 

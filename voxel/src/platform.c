@@ -1,6 +1,10 @@
 #include "platform.h"
 #include "input.h"
+#ifdef VOXEL_WEB
+#include <GLES3/gl3.h>
+#else
 #include <glad/gl.h>
+#endif
 #include <stdio.h>
 
 int platform_init(Platform *p, int w, int h, const char *title) {
@@ -8,9 +12,15 @@ int platform_init(Platform *p, int w, int h, const char *title) {
         fprintf(stderr, "SDL_Init: %s\n", SDL_GetError());
         return 0;
     }
+#ifdef VOXEL_WEB
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);   /* WebGL2 = GLES 3.0 */
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+#else
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+#endif
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
@@ -29,12 +39,15 @@ int platform_init(Platform *p, int w, int h, const char *title) {
         fprintf(stderr, "SDL_GL_CreateContext: %s\n", SDL_GetError());
         return 0;
     }
-    SDL_GL_SetSwapInterval(1);   /* vsync */
+    SDL_GL_SetSwapInterval(1);
 
+#ifndef VOXEL_WEB
     if (!gladLoadGL((GLADloadfunc)SDL_GL_GetProcAddress)) {
         fprintf(stderr, "gladLoadGL failed\n");
         return 0;
     }
+#endif
+
     input_capture_mouse(p->window, 1);
     p->last_ticks = SDL_GetPerformanceCounter();
     g_window_w = w;
@@ -43,10 +56,10 @@ int platform_init(Platform *p, int w, int h, const char *title) {
 }
 
 void platform_begin_frame(Platform *p) {
-    uint64_t now = SDL_GetPerformanceCounter();
+    uint64_t now  = SDL_GetPerformanceCounter();
     uint64_t freq = SDL_GetPerformanceFrequency();
     p->dt = (float)(now - p->last_ticks) / (float)freq;
-    if (p->dt > 0.1f) p->dt = 0.1f;   /* cap at 100ms */
+    if (p->dt > 0.1f) p->dt = 0.1f;
     p->last_ticks = now;
 
     input_begin_frame();

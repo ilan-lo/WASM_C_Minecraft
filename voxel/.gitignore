@@ -1,3 +1,7 @@
 voxel
 lib/stb_image.h
 lib/glad/
+voxel.html
+voxel.js
+voxel.wasm
+voxel.data

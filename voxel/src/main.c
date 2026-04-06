@@ -3,60 +3,54 @@
 #include "input.h"
 #include "blocks.h"
 #include "world.h"
-#include "worldgen.h"
 #include "player.h"
 #include "renderer.h"
 
+#ifdef VOXEL_WEB
+#include <emscripten.h>
+#endif
+
+static Platform  s_platform;
+static World     s_world;
+static Renderer  s_renderer;
+static Player    s_player;
+
+static void frame(void) {
+    platform_begin_frame(&s_platform);
+    if (g_quit) {
+#ifdef VOXEL_WEB
+        emscripten_cancel_main_loop();
+#endif
+        return;
+    }
+    if (g_reload_shaders) renderer_reload_shaders(&s_renderer);
+    world_update(&s_world, s_player.body.pos.x, s_player.body.pos.z);
+    player_update(&s_player, &s_world, s_platform.dt);
+    renderer_render(&s_renderer, &s_world, &s_player,
+                    g_window_w, g_window_h, s_platform.dt);
+    platform_swap(&s_platform);
+}
+
 int main(void) {
-    Platform platform;
-    if (!platform_init(&platform, 1280, 720, "Voxel")) return 1;
+    if (!platform_init(&s_platform, 1280, 720, "Voxel")) return 1;
 
     blocks_init();
+    world_init(&s_world);
+    world_update(&s_world, 0, 0);
+    player_init(&s_player, 0, 80, 0);
 
-    /* Static allocation — avoid large stack frames */
-    static World    world;
-    static Renderer renderer;
-    static Player   player;
-
-    world_init(&world);
-
-    /* Find a good spawn height */
-    float spawn_x = 0.f, spawn_z = 0.f;
-    /* Pre-generate spawn area so we have height data */
-    world_update(&world, spawn_x, spawn_z);
-    float spawn_y = 80.f;   /* worldgen centers around ~50-70, 80 is safely above */
-
-    player_init(&player, spawn_x, spawn_y, spawn_z);
-
-    if (!renderer_init(&renderer)) {
+    if (!renderer_init(&s_renderer)) {
         fprintf(stderr, "Renderer init failed\n");
         return 1;
     }
 
-    printf("Controls:\n");
-    printf("  WASD       - move\n");
-    printf("  Mouse      - look\n");
-    printf("  Space      - jump\n");
-    printf("  LShift     - sprint\n");
-    printf("  LMB        - break block\n");
-    printf("  RMB        - place block\n");
-    printf("  1-9        - select hotbar slot\n");
-    printf("  R          - reload shaders\n");
-    printf("  Escape     - quit\n");
-
-    while (!g_quit) {
-        platform_begin_frame(&platform);
-
-        if (g_reload_shaders) renderer_reload_shaders(&renderer);
-
-        world_update(&world, player.body.pos.x, player.body.pos.z);
-        player_update(&player, &world, platform.dt);
-        renderer_render(&renderer, &world, &player,
-                        g_window_w, g_window_h, platform.dt);
-        platform_swap(&platform);
-    }
-
-    renderer_free(&renderer);
-    platform_free(&platform);
+#ifdef VOXEL_WEB
+    /* Browser controls the loop — 0 = use requestAnimationFrame rate, 1 = simulate infinite loop */
+    emscripten_set_main_loop(frame, 0, 1);
+#else
+    while (!g_quit) frame();
+    renderer_free(&s_renderer);
+    platform_free(&s_platform);
+#endif
     return 0;
 }

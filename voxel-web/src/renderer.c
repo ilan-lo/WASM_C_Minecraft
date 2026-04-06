@@ -182,6 +182,18 @@ void renderer_reload_shaders(Renderer *r) {
     fprintf(stderr, "Shaders reloaded.\n");
 }
 
+/* representative color per block type for hotbar icons */
+static const float s_block_col[BLOCK_COUNT][4] = {
+    [BLOCK_GRASS]   = {0.39f, 0.63f, 0.27f, 1.f},
+    [BLOCK_DIRT]    = {0.47f, 0.31f, 0.16f, 1.f},
+    [BLOCK_STONE]   = {0.51f, 0.51f, 0.51f, 1.f},
+    [BLOCK_WOOD]    = {0.55f, 0.35f, 0.17f, 1.f},
+    [BLOCK_LEAVES]  = {0.24f, 0.56f, 0.24f, 0.9f},
+    [BLOCK_SAND]    = {0.82f, 0.76f, 0.47f, 1.f},
+    [BLOCK_WATER]   = {0.37f, 0.63f, 0.78f, 0.85f},
+    [BLOCK_BEDROCK] = {0.25f, 0.25f, 0.25f, 1.f},
+};
+
 static void draw_ui(Renderer *r, Player *p, int win_w, int win_h) {
     glUseProgram(r->ui_prog);
     mat4 proj = mat4_ortho(0, (float)win_w, 0, (float)win_h, -1, 1);
@@ -189,10 +201,13 @@ static void draw_ui(Renderer *r, Player *p, int win_w, int win_h) {
     glUniform1i(r->u_ui_use_tex, 0);
     glDisable(GL_DEPTH_TEST);
 
-    /* crosshair */
-    float cx = win_w * 0.5f, cy = win_h * 0.5f;
-    float cs = 10.f;
-    UIVert verts[24];
+    float hbar_w = HOTBAR_SLOTS * 42.f;
+    float hbar_x = (win_w - hbar_w) * 0.5f;
+    float hbar_y = 10.f;
+    float pad = 5.f;
+
+    /* 2 crosshair + 1 hotbar bg + HOTBAR_SLOTS icons + 1 selected = max 13 quads */
+    UIVert verts[(13 + HOTBAR_SLOTS) * 6];
     int n = 0;
 #define QUAD(x0,y0,x1,y1,ri,gi,bi,ai) \
     verts[n++]=(UIVert){x0,y0,0,0,ri,gi,bi,ai}; \
@@ -202,16 +217,28 @@ static void draw_ui(Renderer *r, Player *p, int win_w, int win_h) {
     verts[n++]=(UIVert){x1,y1,0,0,ri,gi,bi,ai}; \
     verts[n++]=(UIVert){x0,y1,0,0,ri,gi,bi,ai};
 
-    QUAD(cx-cs, cy-1.5f, cx+cs, cy+1.5f, 1,1,1,0.8f)   /* horizontal */
-    QUAD(cx-1.5f, cy-cs, cx+1.5f, cy+cs, 1,1,1,0.8f)   /* vertical */
+    /* crosshair */
+    float cx = win_w * 0.5f, cy = win_h * 0.5f, cs = 10.f;
+    QUAD(cx-cs, cy-1.5f, cx+cs, cy+1.5f, 1,1,1,0.8f)
+    QUAD(cx-1.5f, cy-cs, cx+1.5f, cy+cs, 1,1,1,0.8f)
 
     /* hotbar background */
-    float hbar_w = HOTBAR_SLOTS * 42.f;
-    float hbar_x = (win_w - hbar_w) * 0.5f;
-    float hbar_y = 10.f;
     QUAD(hbar_x, hbar_y, hbar_x+hbar_w, hbar_y+42.f, 0,0,0,0.4f)
 
-    /* selected slot highlight */
+    /* block icons */
+    for (int i = 0; i < HOTBAR_SLOTS; i++) {
+        uint8_t id = p->hotbar[i];
+        if (id == BLOCK_AIR) continue;
+        float ix0 = hbar_x + i * 42.f + pad;
+        float iy0 = hbar_y + pad;
+        float ix1 = ix0 + 42.f - 2.f*pad;
+        float iy1 = iy0 + 42.f - 2.f*pad;
+        QUAD(ix0, iy0, ix1, iy1,
+             s_block_col[id][0], s_block_col[id][1],
+             s_block_col[id][2], s_block_col[id][3])
+    }
+
+    /* selected slot highlight (drawn last so it's on top) */
     float sx = hbar_x + p->slot * 42.f;
     QUAD(sx, hbar_y, sx+42.f, hbar_y+42.f, 1,1,1,0.3f)
 #undef QUAD

@@ -1,5 +1,9 @@
 #pragma once
+#ifdef VOXEL_WEB
+#include <GLES3/gl3.h>
+#else
 #include <glad/gl.h>
+#endif
 #include "math.h"
 #include "world.h"
 #include "player.h"
@@ -16,6 +20,9 @@ typedef struct {
 
     /* uniforms cache */
     GLint  u_mvp, u_chunk_offset, u_atlas_size, u_atlas, u_fog_color, u_fog_start, u_fog_end;
+#ifdef VOXEL_WEB
+    GLint  u_mv;
+#endif
     GLint  u_ui_proj, u_ui_tex, u_ui_use_tex;
 
     Minimap minimap;

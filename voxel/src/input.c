@@ -43,13 +43,14 @@ void input_begin_frame(void) {
     g_mouse_dy       = 0;
     g_reload_shaders = 0;
 
-    /* Keep cursor inside the window every frame.
-       SDL_SetRelativeMouseMode gives correct xrel/yrel from raw input —
-       the warp does NOT corrupt those deltas, it only moves the cursor visually. */
+    /* Keep cursor inside the window every frame (desktop only).
+       On web, Pointer Lock handles confinement; warping would break delta reporting. */
+#ifndef VOXEL_WEB
     if (g_mouse_captured && s_win) {
         SDL_WarpMouseInWindow(s_win, g_window_w / 2, g_window_h / 2);
         s_skip_motion = 1;
     }
+#endif
 }
 
 void input_process_event(SDL_Event *e) {

@@ -25,4 +25,7 @@ $(TARGET): $(SRCS)
 clean:
 	rm -f $(TARGET)
 
+# Suppress GNU Make's built-in %.p: %.web literate-programming rule for Makefile.web
+Makefile.web: ;
+
 .PHONY: all clean
