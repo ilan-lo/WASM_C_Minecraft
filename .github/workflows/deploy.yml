@@ -25,6 +25,12 @@ jobs:
       - name: Setup Emscripten
         uses: mymindstorm/setup-emsdk@v14
 
+      - name: Download dependencies
+        run: |
+          # stb_image.h — single-header lib, not committed to git
+          curl -sL https://raw.githubusercontent.com/nothings/stb/master/stb_image.h \
+            -o voxel-web/lib/stb_image.h
+
       - name: Build web version
         run: |
           cd voxel-web
