@@ -34,7 +34,10 @@ jobs:
       - name: Build web version
         run: |
           cd voxel-web
+          make clean
           make
+          echo "=== Build artifacts ==="
+          ls -lh voxel.html voxel.js voxel.wasm voxel.data
 
       - name: Prepare GitHub Pages output
         run: |
