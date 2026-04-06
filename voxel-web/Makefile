@@ -22,6 +22,7 @@ SRCS    = src/main.c \
           src/physics.c \
           src/player.c \
           src/renderer.c \
+          src/minimap.c \
           src/ui.c
 TARGET  = voxel.html
 

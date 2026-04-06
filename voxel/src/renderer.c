@@ -1,4 +1,5 @@
 #include "renderer.h"
+#include "minimap.h"
 #include "mesh.h"
 #include "blocks.h"
 #include "input.h"
@@ -161,6 +162,7 @@ int renderer_init(Renderer *r) {
     r->atlas_tex  = load_atlas("assets/textures/atlas.png", &r->atlas_size);
     cache_uniforms(r);
     ui_vao_init(r);
+    minimap_init(&r->minimap);
 
     glEnable(GL_DEPTH_TEST);
     glEnable(GL_CULL_FACE);
@@ -271,7 +273,18 @@ void renderer_render(Renderer *r, World *w, Player *p, int win_w, int win_h, flo
     }
     glBindVertexArray(0);
 
+    minimap_update(&r->minimap, w, p);
     draw_ui(r, p, win_w, win_h);
+    /* render minimap with UI shader still active */
+    glDisable(GL_DEPTH_TEST);
+    mat4 mm_proj = mat4_ortho(0, (float)win_w, 0, (float)win_h, -1, 1);
+    glUniformMatrix4fv(r->u_ui_proj, 1, GL_FALSE, mm_proj.m);
+    glActiveTexture(GL_TEXTURE0);
+    glUniform1i(r->u_ui_tex, 0);
+    glUniform1i(r->u_ui_use_tex, 1);
+    glVertexAttrib4f(2, 1.f, 1.f, 1.f, 1.f);  /* default color = white */
+    minimap_render(&r->minimap, win_w, win_h);
+    glEnable(GL_DEPTH_TEST);
 }
 
 void renderer_free(Renderer *r) {
