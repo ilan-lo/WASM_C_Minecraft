@@ -45,15 +45,7 @@ jobs:
           cp voxel/voxel.js    _site/
           cp voxel/voxel.wasm  _site/
           cp voxel/voxel.data  _site/
-          python3 << 'EOF'
-import re
-with open('_site/index.html') as f:
-    html = f.read()
-html = re.sub(r'<a\b[^>]*>\s*<img\s+id=emscripten_logo[^>]*>\s*</a>', '', html)
-with open('_site/index.html', 'w') as f:
-    f.write(html)
-print('Logo removed from index.html')
-EOF
+          python3 -c 'import re; html=open("_site/index.html").read(); html=re.sub(r"<a\b[^>]*>\s*<img\s+id=emscripten_logo[^>]*>\s*</a>","",html); open("_site/index.html","w").write(html); print("Logo removed")'
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
